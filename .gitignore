@@ -1,0 +1,8 @@
+# Python Virtual Environment
+.venv/
+# Compiled Python files
+__pycache__/
+#Operating System Metadata
+.DS_Store
+# Log files
+*.log
