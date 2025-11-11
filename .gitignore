@@ -9,6 +9,3 @@ __pycache__/
 *.log
 # image and videos
 camroll/
-
-# config
-config.ini

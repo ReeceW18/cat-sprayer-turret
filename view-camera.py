@@ -5,14 +5,11 @@ import os
 
 # pull config values
 config = configparser.ConfigParser()
-
 config_file_path = os.path.join(os.path.dirname(__file__), 'config.ini')
-
 try:
     config.read(config_file_path)
 except Exception as e:
     print(f"Error reading config file: {e}\n Did you set up config file properly?")
-
 receiver_port_str = config.get('NETWORK', 'RECEIVER_PORT')
 
 # Initialize the ImageHub (server)
