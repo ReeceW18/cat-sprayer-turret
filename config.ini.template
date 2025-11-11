@@ -1,0 +1,8 @@
+[NETWORK]
+RECEIVER_IP = 192.168.X.XX
+RECEIVER_PORT = XXXX #TCP PORT, 5000-6000 is common, make sure firewall allows connection
+
+[HARDWARE]
+#GPIO Pin numbers
+PAN_SERVO_PIN = 18 
+TILT_SERVO_PIN = 19
