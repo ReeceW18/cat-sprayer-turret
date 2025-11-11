@@ -13,7 +13,7 @@ except Exception as e:
 receiver_port_str = config.get('NETWORK', 'RECEIVER_PORT')
 
 # Initialize the ImageHub (server)
-image_hub = imagezmq.ImageHub('tcp://*:{receiver_port_str}') 
+image_hub = imagezmq.ImageHub(f'tcp://*:{receiver_port_str}') 
 
 while True: 
     # Receive the sender's name and the frame
