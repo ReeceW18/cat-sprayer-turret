@@ -17,6 +17,10 @@ set up virtual environment
 ```
 python -m venv --system-site-packages .venv
 source .venv/bin/activate
-pip install numpy==1.24.4
-pip install opencv-python==4.8.0.74 picamera2 imagezmq
+pip install -r requirements.txt
+export RECEIVER_IP = "192.168.X.X" # change to ip address of viewing device, add to end of .venv/bin/activate for persistence between restarts
 ```
+
+# Use
+run camera.py from a raspberry pi with a camera attached
+run view-camera.py from another device (whose ip was added as environment variable) to display camera feed remotely

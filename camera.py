@@ -32,7 +32,7 @@ rpi_name = "Pi_YOLO"
 # continuously send images
 while True:
     frame = picam2.capture_array()
-    cv2.imwrite(os.path.join(os.path.dirname(__file__), "camroll/image.png"), frame)
+    cv2.imwrite(os.path.join(os.path.dirname(__file__), "camroll/latest-test-image.png"), frame)
 
     print("sending image...")
     sender.send_image(rpi_name, frame)
