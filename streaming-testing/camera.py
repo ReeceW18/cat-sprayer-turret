@@ -1,8 +1,14 @@
-import imagezmq
-import cv2
-from picamera2 import Picamera2
+"""
+testing camera streaming before programming main project. run this on streaming device and run view-camera.py on receiving device
+
+config.ini needs to have tcp port entered and environment variable 'RECEIVER_IP' needs to be set
+"""
 import configparser
 import os
+
+import cv2
+import imagezmq
+from picamera2 import Picamera2
 
 # pull config values
 config = configparser.ConfigParser()

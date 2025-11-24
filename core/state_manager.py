@@ -1,8 +1,17 @@
-from enum import StrEnum, auto
-from threading import Lock
-from collections import deque
-from typing import Tuple
+"""
+Contains types and classes for handling the SystemState including simple configuration variables.
+
+Also contains class for thread safe frame history deque
+
+TODO:
+- implement 'global' values stored within system state
+"""
+
 import numpy as np
+from collections import deque
+from enum import auto, StrEnum
+from threading import Lock
+from typing import Tuple
 
 FrameData = Tuple[np.ndarray, float, int]
 

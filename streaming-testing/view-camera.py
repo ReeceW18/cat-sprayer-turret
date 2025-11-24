@@ -1,3 +1,8 @@
+"""
+test code to be ran on a device to recieve a video stream
+
+see camera.py
+"""
 import imagezmq
 import cv2
 import configparser

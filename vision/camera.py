@@ -1,18 +1,29 @@
-from picamera2 import Picamera2
+"""
+TODO:
+- proper camera configuration
+- handling for if no camera is connected
+    - error handling in general
+"""
 import numpy as np
+
+from picamera2 import Picamera2
 
 class Camera():
     def __init__(self):
+        # REVISIT CONFIGURATION SPECIFICS
         self._cam = Picamera2()
-        # ADD SETUP
+        self._cam.preview_configuration.main.size = (240,240)
+        self._cam.preview_configuration.main.format = "RGB888"
+        self._cam.preview_configuration.align()
+        self._cam.configure("preview")
+        self._cam.start()
 
     def stop(self):
         # CLEAN UP CAMERA
-
-        return
+        self._cam.stop()
 
     def capture(self):
         # RETURN AN IMAGE
-        placeholder = np.full((100,100,3),128,dtype=np.uint8)
+        frame = self._cam.capture_array()
 
-        return placeholder
+        return frame

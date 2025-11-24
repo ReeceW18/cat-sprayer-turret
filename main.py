@@ -1,17 +1,39 @@
-import threading, time, queue
-from vision.camera import Camera
-from hardware.servo import setup_aiming, setup_trigger
+import os
+import queue
+import threading
+import time
+
+import cv2
+
 import core.state_manager as state_manager
 import core.threads
-from hardware.servo import Servo
+from hardware.servo import Servo, setup_aiming, setup_trigger
+from vision.camera import Camera
 
-def calibrate(camera: Camera, aim: Servo, trigger:Servo):
+
+def calibrate(camera: Camera, aim: Servo, trigger: Servo):
+    """
+    Calibrate the hardware
+
+    1. Capture an image and store it in camroll
+    2. Move servos to calibration position to be screwed into the assembly
+    3. Wait some number of seconds
+    4. return servos to default position
+    """
+    # capture frame and save to camroll
     test_frame = camera.capture()
-    # save test frame to camroll/
 
+    camroll_dir = os.path.join(os.path.dirname(__file__), "camroll")
+    os.makedirs(camroll_dir, exist_ok=True)
+    save_path = os.path.join(camroll_dir, f"calibration-test_{int(time.time())}.png")
+
+    cv2.imwrite(save_path, test_frame)
+    
     # set motors to calibration position
     aim.calib_pos()
     trigger.calib_pos()
+
+    # countdown until resetting position to default
     for i in range(3, -1, -1):
         print(f"{i}")
         time.sleep(1)
@@ -22,16 +44,18 @@ def calibrate(camera: Camera, aim: Servo, trigger:Servo):
 
 
 if __name__=="__main__":
+    # initialize hardware
     print("initializing hardware")
     camera = Camera()
     aim_motor = setup_aiming()
     trigger_motor = setup_trigger()
 
+    # initialize queues
     print("initializing queues")
     fps = 30
     pre_roll_seconds = 10
     pre_roll_size = fps*pre_roll_seconds
-    frame_history = state_manager.RollingFrameBuffer(pre_roll_size)
+    frame_history = state_manager.RollingFrameBuffer(pre_roll_size) # pre_roll for saved video
 
     raw_queue = queue.Queue(2)
     stream_queue = queue.Queue(2)
@@ -39,12 +63,15 @@ if __name__=="__main__":
     metadata_queue = queue.Queue()
     hardware_command_queue = queue.Queue()
 
+    # initialize system
     print("initializing system state")
     state = state_manager.SystemState()
 
+    # calibrate
     print("starting calibration")
     calibrate(camera, aim_motor, trigger_motor)
 
+    # create threads
     print("creating threads")
     capture_thread = threading.Thread(
         target=core.threads.capture_frames,
@@ -71,23 +98,28 @@ if __name__=="__main__":
         args=(frame_history, post_roll_queue, metadata_queue, state),
         daemon=False)
 
+    # start threads
     print("entering sentry mode and starting threads")
     state.mode = state_manager.SystemMode.SENTRY
     threads = [capture_thread, stream_thread, yolo_processing_thread, hardware_control_thread, video_saver_thread]
     for t in threads:
         t.start()
 
+    # listen for keyboard interrupt for graceful shutdown
     print("threads running, listening for interrupt (ctrl c) for controlled shutdown")
-
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
+        # indicate that system is in shutdown
         print("shutting down")
         state.mode = state_manager.SystemMode.SHUTDOWN
+
+        # release threads that have special ending behavior
         print("waiting for video saver thread to stop")
         video_saver_thread.join()
 
+        # clean up/release hardware
         print("releasing hardware")
         camera.stop()
         aim_motor.release()
