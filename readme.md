@@ -23,4 +23,5 @@ export RECEIVER_IP = "192.168.X.X" # change to ip address of viewing device, add
 
 # Use
 run camera.py from a raspberry pi with a camera attached
+
 run view-camera.py from another device (whose ip was added as environment variable) to display camera feed remotely
