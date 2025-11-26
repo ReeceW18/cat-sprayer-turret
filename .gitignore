@@ -17,4 +17,6 @@ testing/*
 
 !testing/yolo_test_images.py
 
+.new*
+
 *.pt
