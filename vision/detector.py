@@ -4,6 +4,7 @@ TODO: Everything
 from enum import StrEnum, auto
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
+import cv2
 
 class TargetDirection(StrEnum):
     CENTER = auto()
@@ -59,17 +60,25 @@ class DetectionResult:
 
 class ObjectDetector:
     def __init__(self):
-        model_path = "models/yolov8n.pt" # TODO, define in config
+        model_path = "models/11s_320p_halfprecision_ncnn_model" # TODO, define in config
         self._model = YOLO(model_path)
 
     def predict(self, frame) -> DetectionResult:
         # TODO
-        imgSize = 640 # TODO, define in config, must match exported model
-        results = DetectionResult(self._model.predict(frame, imgsz = imgSize, classes=[0]))
+        results = DetectionResult(self._model.predict(frame))
         return results
 
     def overlay(self, frame, results: DetectionResult, state, fps):
         # TODO
         annotated_frame = results.overlay(frame)
+        text = f'FPS: {fps:.1f}'
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_size = cv2.getTextSize(text, font, 1, 2)[0]
+        text_x = annotated_frame.shape[1] - text_size[0] - 10
+        text_y = text_size[1] + 10
+
+        cv2.putText(annotated_frame, text, (text_x, text_y), font, 1, (255,255,255), 2, cv2.LINE_AA)
+
         processed_frame = annotated_frame # TODO add overlay of state and fps
         return processed_frame

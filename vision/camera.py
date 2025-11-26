@@ -12,7 +12,7 @@ class Camera():
     def __init__(self):
         # REVISIT CONFIGURATION SPECIFICS
         self._cam = Picamera2()
-        self._cam.preview_configuration.main.size = (240,240)
+        self._cam.preview_configuration.main.size = (1080,1080)
         self._cam.preview_configuration.main.format = "RGB888"
         self._cam.preview_configuration.align()
         self._cam.configure("preview")

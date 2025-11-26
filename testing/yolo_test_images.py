@@ -13,13 +13,13 @@ from ultralytics import YOLO
 MODEL_PATHS = [
     './models/11n_320p_halfprecision_ncnn_model',
     './models/11n_480p_halfprecision_ncnn_model',
-    './models/11n_640p_halfprecision_ncnn_model',
+    # './models/11n_640p_halfprecision_ncnn_model',
     './models/11s_320p_halfprecision_ncnn_model',
-    './models/11s_480p_halfprecision_ncnn_model',
-    './models/11s_640p_halfprecision_ncnn_model',
+    # './models/11s_480p_halfprecision_ncnn_model',
+    # './models/11s_640p_halfprecision_ncnn_model',
     # Add more model paths here, e.g.:
     # './models/another_model',
-    # 'yolov8n.pt',
+    'yolov8n.pt',
 ]
 IMGSZ = 320  # Model input size
 # =========================
