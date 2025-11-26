@@ -15,7 +15,7 @@ from pathlib import Path
 import cv2
 import imagezmq
 
-import vision.cvprocessing as yolo
+from vision.detector import TargetDirection, ObjectDetector
 from core.state_manager import SystemMode, SystemState, RollingFrameBuffer
 from hardware.hardware_control import HardwareCommand
 from vision.camera import Camera
@@ -85,7 +85,8 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
     Handles core computation on decision making. Uses computer vision to switch system states and give hardware instructions. Most data passes through here from one thread to another even if its unmodified.
     """
 
-    yolo_model = yolo.setup_model()
+    detector = ObjectDetector()
+    last_streamed_frame_timestamp = -1
 
     while state.mode != SystemMode.SHUTDOWN:
         # TEMP TESTING
@@ -96,22 +97,34 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
             stream_queue.put(frame)
 
         if state.mode == SystemMode.SENTRY or state.mode == SystemMode.AIMING:
-            results = yolo_model.predict(frame)
+            results = detector.predict(frame)
 
             if state.mode == SystemMode.SENTRY:
                 if results.has_target():
                     state.mode = SystemMode.AIMING
             else:
-                if results.in_center():
+                direction = results.get_direction()
+                if direction == TargetDirection.CENTER:
                     trigger_event.set()
                     hardware_command_queue.put(HardwareCommand.FIRE)
                     state.mode = SystemMode.COOLDOWN
+                elif direction == TargetDirection.LEFT:
+                    hardware_command_queue.put(HardwareCommand.AIM_LEFT)
+                elif direction == TargetDirection.RIGHT:
+                    hardware_command_queue.put(HardwareCommand.AIM_RIGHT)
 
             metadata_queue.put((results, timestamp))
             frame_history.append((frame, timestamp))
-            processed_frame = yolo.overlay(frame, results)
-
+            
             if not stream_queue.full():
+                # calculate fps
+                current_time = time.time()
+                time_since_last = current_time - last_streamed_frame_timestamp
+                fps = 1 / time_since_last
+                last_streamed_frame_timestamp = current_time
+
+                # generate and stream frame
+                processed_frame = detector.overlay(frame, results, state, fps)
                 stream_queue.put(processed_frame)
 
         else:
@@ -120,6 +133,7 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
             else:
                 # TODO implement waiting extra for systemstate.cooldowntime
                 state.mode = SystemMode.SENTRY
+
 
 def hardware_control(aim_motor, trigger_motor, hardware_command_queue, state: SystemState):
     """
