@@ -110,19 +110,19 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
                 if results.has_target():
                     state.mode = SystemMode.AIMING
                     print("Switching to AIMING mode")
-            elif not hardware_command_queue.full:
-                direction = results.get_direction()
-                if direction == TargetDirection.CENTER:
-                    trigger_event.set()
-                    hardware_command_queue.put(HardwareCommand.FIRE)
-                    state.mode = SystemMode.COOLDOWN
-                    #print("FIRE")
-                elif direction == TargetDirection.LEFT:
-                    hardware_command_queue.put(HardwareCommand.AIM_LEFT)
-                    #print("LEFT")
-                elif direction == TargetDirection.RIGHT:
-                    hardware_command_queue.put(HardwareCommand.AIM_RIGHT)
-                    #print("RIGHT")
+            #elif not hardware_command_queue.full:
+            direction = results.get_direction()
+            if direction == TargetDirection.CENTER:
+                #trigger_event.set()
+                #hardware_command_queue.put(HardwareCommand.FIRE)
+                #state.mode = SystemMode.COOLDOWN
+                print("CENTER")
+            elif direction == TargetDirection.LEFT:
+                #hardware_command_queue.put(HardwareCommand.AIM_LEFT)
+                print("LEFT")
+            elif direction == TargetDirection.RIGHT:
+                #hardware_command_queue.put(HardwareCommand.AIM_RIGHT)
+                print("RIGHT")
 
             metadata_queue.append((results, timestamp))
             _, compressed_frame = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
