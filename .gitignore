@@ -11,3 +11,6 @@ __pycache__/
 camroll/
 
 .testenv/
+
+models/
+testing/
