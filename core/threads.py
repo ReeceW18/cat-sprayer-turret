@@ -16,7 +16,7 @@ import cv2
 import imagezmq
 
 from vision.detector import TargetDirection, ObjectDetector
-from core.state_manager import SystemMode, SystemState, RollingFrameBuffer
+from core.state_manager import SystemMode, SystemState, ThreadingDeque
 from hardware.hardware_control import HardwareCommand
 from vision.camera import Camera
 
@@ -33,7 +33,7 @@ def capture_frames(camera: Camera, raw_queue: queue.Queue, state: SystemState):
         if state.mode == SystemMode.SENTRY:
             FPS = 1
         else:
-            FPS = 30
+            FPS = 10
         # print(f"fps set to {FPS}")
 
         # capture frame
@@ -44,7 +44,7 @@ def capture_frames(camera: Camera, raw_queue: queue.Queue, state: SystemState):
 
         # add tuple(frame, time) to raw queue if space
         if not raw_queue.full():
-            print("adding frame to raw queue")
+            # print("adding frame to raw queue")
             raw_queue.put((frame, timestamp))
         else:
             # print("raw queue full")
@@ -81,11 +81,11 @@ def stream_frames(stream_queue: queue.Queue, state: SystemState):
         _, compressed_frame = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
 
         # send frame (blocks until frame is recieved)
-        print("sending frame...")
+        # print("sending frame...")
         sender.send_image(rpi_name, compressed_frame)
-        print("frame sent!")
+        # print("frame sent!")
 
-def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stream_queue: queue.Queue, frame_history:RollingFrameBuffer, post_roll_queue: queue.Queue, metadata_queue: queue.Queue, hardware_command_queue: queue.Queue, state: SystemState):
+def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stream_queue: queue.Queue, frame_history: ThreadingDeque, post_roll_queue: queue.Queue, metadata_queue: ThreadingDeque, hardware_command_queue: queue.Queue, state: SystemState):
     """
     Handles core computation on decision making. Uses computer vision to switch system states and give hardware instructions. Most data passes through here from one thread to another even if its unmodified.
     """
@@ -94,7 +94,9 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
     last_streamed_frame_timestamp = -1
 
     while state.mode != SystemMode.SHUTDOWN:
-        # TEMP TESTING
+        print(f"frame history size: {frame_history.size()}")
+        print(f"metadata history size: {metadata_queue.size()}")
+
         frame, timestamp = raw_queue.get()
 
         testing = False
@@ -108,30 +110,33 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
                 if results.has_target():
                     state.mode = SystemMode.AIMING
                     print("Switching to AIMING mode")
-            else:
+            elif not hardware_command_queue.full:
                 direction = results.get_direction()
                 if direction == TargetDirection.CENTER:
                     trigger_event.set()
                     hardware_command_queue.put(HardwareCommand.FIRE)
                     state.mode = SystemMode.COOLDOWN
-                    print("FIRE")
+                    #print("FIRE")
                 elif direction == TargetDirection.LEFT:
                     hardware_command_queue.put(HardwareCommand.AIM_LEFT)
-                    print("LEFT")
+                    #print("LEFT")
                 elif direction == TargetDirection.RIGHT:
                     hardware_command_queue.put(HardwareCommand.AIM_RIGHT)
-                    print("RIGHT")
+                    #print("RIGHT")
 
-            metadata_queue.put((results, timestamp))
-            frame_history.append((frame, timestamp))
+            metadata_queue.append((results, timestamp))
+            _, compressed_frame = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+            frame_history.append((compressed_frame, timestamp))
+
+            # calculate fps
+            current_time = time.time()
+            time_since_last = current_time - last_streamed_frame_timestamp
+            fps = 1 / time_since_last
+            last_streamed_frame_timestamp = current_time
+
+            print(f"FPS: {fps:.0f}")
             
             if not stream_queue.full():
-                # calculate fps
-                current_time = time.time()
-                time_since_last = current_time - last_streamed_frame_timestamp
-                fps = 1 / time_since_last
-                last_streamed_frame_timestamp = current_time
-
                 # generate and stream frame
                 processed_frame = detector.overlay(frame, results, state, fps)
                 stream_queue.put(processed_frame)

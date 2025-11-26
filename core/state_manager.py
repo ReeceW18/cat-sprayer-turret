@@ -44,19 +44,23 @@ class SystemState():
 
     # OTHER GETTER AND SETTERS 
 
-class RollingFrameBuffer:
+class ThreadingDeque:
     def __init__(self, max_length: int):
         self._deque = deque(maxlen=max_length)
         self._lock = Lock()
 
-    def append(self, data: FrameData):
+    def append(self, data):
         with self._lock:
             self._deque.append(data)
 
-    def get_snapshot(self) -> list[FrameData]:
+    def get_snapshot(self):
         with self._lock:
             return list(self._deque)
 
     def clear(self):
         with self._lock:
             self._deque.clear()
+
+    def size(self) -> int:
+        with self._lock:
+            return len(self._deque)

@@ -52,16 +52,19 @@ if __name__=="__main__":
 
     # initialize queues
     print("initializing queues")
-    fps = 30
+    fps = 15
     pre_roll_seconds = 10
     pre_roll_size = fps*pre_roll_seconds
-    frame_history = state_manager.RollingFrameBuffer(pre_roll_size) # pre_roll for saved video
+    frame_history = state_manager.ThreadingDeque(pre_roll_size) # pre_roll for saved video
 
     raw_queue = queue.Queue(2)
     stream_queue = queue.Queue(2)
-    post_roll_queue = queue.Queue()
-    metadata_queue = queue.Queue()
-    hardware_command_queue = queue.Queue()
+
+    post_roll_seconds = 5
+    post_roll_size = fps*post_roll_seconds
+    post_roll_queue = queue.Queue(post_roll_size)
+    metadata_queue = state_manager.ThreadingDeque(pre_roll_size+post_roll_size)
+    hardware_command_queue = queue.Queue(10)
 
     # initialize system
     print("initializing system state")

@@ -61,17 +61,18 @@ class DetectionResult:
 class ObjectDetector:
     def __init__(self):
         model_path = "models/11s_320p_halfprecision_ncnn_model" # TODO, define in config
+        model_path = "models/11n_320p_halfprecision_ncnn_model" # TODO, define in config
         self._model = YOLO(model_path)
 
     def predict(self, frame) -> DetectionResult:
         # TODO
-        results = DetectionResult(self._model.predict(frame))
+        results = DetectionResult(self._model.predict(frame, verbose=False))
         return results
 
     def overlay(self, frame, results: DetectionResult, state, fps):
         # TODO
         annotated_frame = results.overlay(frame)
-        text = f'FPS: {fps:.1f}'
+        text = f'FPS: {fps:.0f}'
 
         font = cv2.FONT_HERSHEY_SIMPLEX
         text_size = cv2.getTextSize(text, font, 1, 2)[0]
