@@ -13,7 +13,7 @@ from enum import auto, StrEnum
 from threading import Lock
 from typing import Tuple
 
-FrameData = Tuple[np.ndarray, float, int]
+FrameData = Tuple[np.ndarray, float]
 
 class SystemMode(StrEnum):
     STARTUP = auto()

@@ -9,12 +9,15 @@ import configparser
 import os
 import queue
 import time
+import threading
 from pathlib import Path
 
 import cv2
 import imagezmq
 
-from core.state_manager import SystemMode, SystemState
+import vision.cvprocessing as yolo
+from core.state_manager import SystemMode, SystemState, RollingFrameBuffer
+from hardware.hardware_control import HardwareCommand
 from vision.camera import Camera
 
 def capture_frames(camera: Camera, raw_queue: queue.Queue, state: SystemState):
@@ -77,14 +80,46 @@ def stream_frames(stream_queue: queue.Queue, state: SystemState):
         sender.send_image(rpi_name, compressed_frame)
         print("frame sent!")
 
-def yolo_processing(raw_queue, stream_queue: queue.Queue, frame_history, post_roll_queue, metadata_queue, hardware_command_queue, state: SystemState):
+def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stream_queue: queue.Queue, frame_history:RollingFrameBuffer, post_roll_queue: queue.Queue, metadata_queue: queue.Queue, hardware_command_queue: queue.Queue, state: SystemState):
     """
     Handles core computation on decision making. Uses computer vision to switch system states and give hardware instructions. Most data passes through here from one thread to another even if its unmodified.
     """
+
+    yolo_model = yolo.setup_model()
+
     while state.mode != SystemMode.SHUTDOWN:
         # TEMP TESTING
         frame, timestamp = raw_queue.get()
-        stream_queue.put(frame)
+
+        testing = True
+        while testing:
+            stream_queue.put(frame)
+
+        if state.mode == SystemMode.SENTRY or state.mode == SystemMode.AIMING:
+            results = yolo_model.predict(frame)
+
+            if state.mode == SystemMode.SENTRY:
+                if results.has_target():
+                    state.mode = SystemMode.AIMING
+            else:
+                if results.in_center():
+                    trigger_event.set()
+                    hardware_command_queue.put(HardwareCommand.FIRE)
+                    state.mode = SystemMode.COOLDOWN
+
+            metadata_queue.put((results, timestamp))
+            frame_history.append((frame, timestamp))
+            processed_frame = yolo.overlay(frame, results)
+
+            if not stream_queue.full():
+                stream_queue.put(processed_frame)
+
+        else:
+            if trigger_event.is_set():
+                post_roll_queue.put((frame, timestamp))
+            else:
+                # TODO implement waiting extra for systemstate.cooldowntime
+                state.mode = SystemMode.SENTRY
 
 def hardware_control(aim_motor, trigger_motor, hardware_command_queue, state: SystemState):
     """
@@ -94,7 +129,7 @@ def hardware_control(aim_motor, trigger_motor, hardware_command_queue, state: Sy
         # UNIMPLEMENTED
         time.sleep(10)
 
-def video_saver(frame_history, post_roll_queue, metadata_queue, state: SystemState):
+def video_saver(trigger_event, frame_history, post_roll_queue, metadata_queue, state: SystemState):
     """
     Saves a video of event whenever event is trigger. Also saves the yolo metadata as json.
     """

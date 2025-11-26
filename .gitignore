@@ -9,3 +9,5 @@ __pycache__/
 *.log
 # image and videos
 camroll/
+
+.testenv/

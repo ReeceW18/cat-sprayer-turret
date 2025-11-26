@@ -66,6 +66,7 @@ if __name__=="__main__":
     # initialize system
     print("initializing system state")
     state = state_manager.SystemState()
+    trigger_event = threading.Event()
 
     # calibrate
     print("starting calibration")
@@ -85,7 +86,7 @@ if __name__=="__main__":
 
     yolo_processing_thread = threading.Thread(
         target=core.threads.yolo_processing,
-        args=(raw_queue, stream_queue, frame_history, post_roll_queue, metadata_queue, hardware_command_queue, state),
+        args=(trigger_event, raw_queue, stream_queue, frame_history, post_roll_queue, metadata_queue, hardware_command_queue, state),
         daemon=True)
 
     hardware_control_thread = threading.Thread(
@@ -95,7 +96,7 @@ if __name__=="__main__":
 
     video_saver_thread = threading.Thread(
         target=core.threads.video_saver,
-        args=(frame_history, post_roll_queue, metadata_queue, state),
+        args=(trigger_event, frame_history, post_roll_queue, metadata_queue, state),
         daemon=False)
 
     # start threads
