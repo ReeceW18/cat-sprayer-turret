@@ -23,6 +23,10 @@ from vision.camera import Camera
 def capture_frames(camera: Camera, raw_queue: queue.Queue, state: SystemState):
     """
     Captures frames from camera and adds them to raw_queue. FPS depends on systemstate
+
+    TODO: decide whether saved video should be 30 fps or only what the remote viewer would see
+    - if it is 30 fps should add to history in this thread
+    - if it is what the remote viewer would see adding to rawqueue can block
     """
     while state.mode != SystemMode.SHUTDOWN:
         # set fps based on mode
