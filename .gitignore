@@ -12,5 +12,5 @@ camroll/
 
 .testenv/
 
-models/
+models/yolov8n.pt
 testing/
