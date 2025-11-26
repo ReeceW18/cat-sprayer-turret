@@ -30,7 +30,7 @@ def capture_frames(camera: Camera, raw_queue: queue.Queue, state: SystemState):
             FPS = 1
         else:
             FPS = 30
-        print(f"fps set to {FPS}")
+        # print(f"fps set to {FPS}")
 
         # capture frame
         frame = camera.capture()
@@ -43,7 +43,8 @@ def capture_frames(camera: Camera, raw_queue: queue.Queue, state: SystemState):
             print("adding frame to raw queue")
             raw_queue.put((frame, timestamp))
         else:
-            print("raw queue full")
+            # print("raw queue full")
+            pass
 
         # sleep depending on mode
         time.sleep(1/FPS)
@@ -92,7 +93,7 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
         # TEMP TESTING
         frame, timestamp = raw_queue.get()
 
-        testing = True
+        testing = False
         while testing:
             stream_queue.put(frame)
 
@@ -102,16 +103,20 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
             if state.mode == SystemMode.SENTRY:
                 if results.has_target():
                     state.mode = SystemMode.AIMING
+                    print("Switching to AIMING mode")
             else:
                 direction = results.get_direction()
                 if direction == TargetDirection.CENTER:
                     trigger_event.set()
                     hardware_command_queue.put(HardwareCommand.FIRE)
                     state.mode = SystemMode.COOLDOWN
+                    print("FIRE")
                 elif direction == TargetDirection.LEFT:
                     hardware_command_queue.put(HardwareCommand.AIM_LEFT)
+                    print("LEFT")
                 elif direction == TargetDirection.RIGHT:
                     hardware_command_queue.put(HardwareCommand.AIM_RIGHT)
+                    print("RIGHT")
 
             metadata_queue.put((results, timestamp))
             frame_history.append((frame, timestamp))
