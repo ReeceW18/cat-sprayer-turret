@@ -13,4 +13,8 @@ camroll/
 .testenv/
 
 models/yolov8n.pt
-testing/
+testing/*
+
+!testing/yolo_test_images.py
+
+*.pt
