@@ -1,0 +1,41 @@
+Performance of different models testing on laptop
+
+============================================================
+OVERALL DETECTION SUMMARY
+============================================================
+
+11n_320p_halfprecision_ncnn_model:
+  Images with cat: 14/17
+  Avg confidence: 68.87%
+  Total detections: 20
+  Avg time: 30.7 ms/image
+
+11n_480p_halfprecision_ncnn_model:
+  Images with cat: 16/17
+  Avg confidence: 77.43%
+  Total detections: 22
+  Avg time: 40.3 ms/image
+
+11n_640p_halfprecision_ncnn_model:
+  Images with cat: 16/17
+  Avg confidence: 78.92%
+  Total detections: 23
+  Avg time: 63.4 ms/image
+
+11s_320p_halfprecision_ncnn_model:
+  Images with cat: 16/17
+  Avg confidence: 74.60%
+  Total detections: 24
+  Avg time: 43.0 ms/image
+
+11s_480p_halfprecision_ncnn_model:
+  Images with cat: 17/17
+  Avg confidence: 78.71%
+  Total detections: 25
+  Avg time: 77.9 ms/image
+
+11s_640p_halfprecision_ncnn_model:
+  Images with cat: 17/17
+  Avg confidence: 75.88%
+  Total detections: 26
+  Avg time: 124.7 ms/image
