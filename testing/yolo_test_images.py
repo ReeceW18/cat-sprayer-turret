@@ -1,5 +1,8 @@
 """
 DISCLAIMER: This file is programmed almost entirely by github copilot and is buggy
+
+reads jpgs from test_cats_dir and feeds them through each model in MODEL_PATHS
+displays summary of detection quality and displays results in windows
 """
 import cv2
 import os
