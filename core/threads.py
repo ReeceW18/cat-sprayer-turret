@@ -1,9 +1,14 @@
 """
-Contains the functions with the core logic that are ran as concurrent threads
+Threads and processes used for running system
+
+Usage:
+    create thread using each function and run all at once. All should be 
+    daemons except for video_saver
 
 TODO:
-- potentially set fps in SystemState
-- implement YOLO, hardware, and video saving
+    - potentially set fps in SystemState
+    - implement hardware, and video saving
+    - see individual function todos
 """
 import configparser
 import os
@@ -22,11 +27,22 @@ from vision.camera import Camera
 
 def capture_frames(camera: Camera, raw_queue: queue.Queue, state: SystemState):
     """
-    Captures frames from camera and adds them to raw_queue. FPS depends on systemstate
+    Captures frames from camera and adds to queues.
 
-    TODO: decide whether saved video should be 30 fps or only what the remote viewer would see
-    - if it is 30 fps should add to history in this thread
-    - if it is what the remote viewer would see adding to rawqueue can block
+    Args:
+        camera (Camera): The Camera object that handles image capture
+        raw_queue (queue.Queue): The queue that raw frames are added to for 
+        processing or streaming
+        state (SystemState): The object that represents the state of the 
+        system, vessel for all simple variables shared by threads
+
+    TODO:
+        - Refine fps definition
+            - store constants in config, 
+            - should fps be set in systemstate? 
+            - should fps change at all just have processing thread decide what 
+            frames need to be processed?
+        - add to history/postroll in this thread instead of processing
     """
     while state.mode != SystemMode.SHUTDOWN:
         # set fps based on mode
@@ -34,95 +50,115 @@ def capture_frames(camera: Camera, raw_queue: queue.Queue, state: SystemState):
             FPS = 1
         else:
             FPS = 10
-        # print(f"fps set to {FPS}")
 
-        # capture frame
         frame = camera.capture()
 
-        # get time
+        # timestamp is used to sync detection data with frames
         timestamp = time.time()
 
-        # add tuple(frame, time) to raw queue if space
         if not raw_queue.full():
-            # print("adding frame to raw queue")
             raw_queue.put((frame, timestamp))
-        else:
-            # print("raw queue full")
-            pass
 
-        # sleep depending on mode
         time.sleep(1/FPS)
 
 def stream_frames(stream_queue: queue.Queue, state: SystemState):
     """
-    Stream frames from stream_queue to an external device identified by RECEIVER_IP in environment variables
+    Stream frames to recieving device on local network at tcp address 
+    RECEIVER_IP:RECEIVER_PORT. ip in env variables, port in config.
+
+    Args:
+        stream_queue (queue.Queue): images to be streamed, this function reads 
+        and sends from this queue one at a time
+        state (SystemState): The object that represents the state of the 
+        system, vessel for all simple variables shared by threads
+
+    TODO:
+        - consider better ways to store ip and port
+        - consider adding compression value to config
     """
-    # get port from config
+    # get tcp port from config
     config = configparser.ConfigParser()
     root_dir = Path(__file__).resolve().parent.parent
     config_file_path = root_dir / 'config.ini'
     config.read(config_file_path)
+
     reciever_port = config.get('NETWORK', 'RECEIVER_PORT')
-
-    # get ip of reciever from env variables
     reciever_ip = os.environ.get('RECEIVER_IP')
-
-    # set up sender
     full_tcp_address = f"{reciever_ip}:{reciever_port}"
+
     print(f"connecting to {full_tcp_address}")
     sender = imagezmq.ImageSender(connect_to=f'tcp://{full_tcp_address}')
+
     rpi_name = "cat_sprayer"
 
     while state.mode != SystemMode.SHUTDOWN:
-        # get frame from queue
         frame = stream_queue.get()
 
-        # compress frame
-        _, compressed_frame = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+        # scale from 1-100, 100 being highest quality, default 95
+        jpeg_quality = 75
+        _, compressed_frame = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality])
 
-        # send frame (blocks until frame is recieved)
-        # print("sending frame...")
+        # this blocks until image is received
         sender.send_image(rpi_name, compressed_frame)
-        # print("frame sent!")
 
 def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stream_queue: queue.Queue, frame_history: ThreadingDeque, post_roll_queue: queue.Queue, metadata_queue: ThreadingDeque, hardware_command_queue: queue.Queue, state: SystemState):
     """
-    Handles core computation on decision making. Uses computer vision to switch system states and give hardware instructions. Most data passes through here from one thread to another even if its unmodified.
-    """
+    Run processing on images and make decisions for hardware commands
 
-    detector = ObjectDetector()
-    last_streamed_frame_timestamp = -1
+    Args:
+        trigger_event (threading.Event): event object that tells video saver 
+        to start saving video on spray trigger
+        raw_queue (queue.Queue): quque that stores frames to be processed
+        stream_queue (queue.Queue): queue that stores frames to be streamed
+        frame_history (ThreadingDeque): deque that stores frame history to be 
+        saved to event video
+        post_roll_queue (queue.Queue): queue that stores post roll after 
+        trigger to be saved to event video
+        metadata_queue (ThreadingDeque): deque that stores object detection 
+        data to be saved along with event video for later overlay
+        hardware_command_queue (queue.Queue): queue that stores commands for 
+        hardware to execute
+        state (SystemState): The object that represents the state of the 
+        system, vessel for all simple variables shared by threads
+
+    TODO:
+        - could make into a process to max speed, or even run yolo inference 
+        only on its own process
+        - move video frames storage to capture thread
+        - create new special hardware queue class to make sure queue doesn't fill up
+            - on add, delete all aim commands but keep fire command
+            - shouldn't need to change logic in this function
+    """
+    object_detector = ObjectDetector()
+    # used to determine processing fps for display when streaming frames
+    last_frame_time = time.time()
 
     while state.mode != SystemMode.SHUTDOWN:
-        print(f"frame history size: {frame_history.size()}")
-        print(f"metadata history size: {metadata_queue.size()}")
-
         frame, timestamp = raw_queue.get()
 
+        # test stream without processing
         testing = False
         while testing:
             stream_queue.put(frame)
 
+        # if in a mode that needs inference to run
         if state.mode == SystemMode.SENTRY or state.mode == SystemMode.AIMING:
-            results = detector.predict(frame)
+            results = object_detector.predict(frame)
 
             if state.mode == SystemMode.SENTRY:
                 if results.has_target():
                     state.mode = SystemMode.AIMING
                     print("Switching to AIMING mode")
-            #elif not hardware_command_queue.full:
-            direction = results.get_direction()
-            if direction == TargetDirection.CENTER:
-                #trigger_event.set()
-                #hardware_command_queue.put(HardwareCommand.FIRE)
-                #state.mode = SystemMode.COOLDOWN
-                print("CENTER")
-            elif direction == TargetDirection.LEFT:
-                #hardware_command_queue.put(HardwareCommand.AIM_LEFT)
-                print("LEFT")
-            elif direction == TargetDirection.RIGHT:
-                #hardware_command_queue.put(HardwareCommand.AIM_RIGHT)
-                print("RIGHT")
+            elif not hardware_command_queue.full:
+                direction = results.get_direction()
+                if direction == TargetDirection.CENTER:
+                    trigger_event.set()
+                    hardware_command_queue.put(HardwareCommand.FIRE)
+                    state.mode = SystemMode.COOLDOWN
+                elif direction == TargetDirection.LEFT:
+                    hardware_command_queue.put(HardwareCommand.AIM_LEFT)
+                elif direction == TargetDirection.RIGHT:
+                    hardware_command_queue.put(HardwareCommand.AIM_RIGHT)
 
             metadata_queue.append((results, timestamp))
             _, compressed_frame = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
@@ -130,15 +166,15 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
 
             # calculate fps
             current_time = time.time()
-            time_since_last = current_time - last_streamed_frame_timestamp
-            fps = 1 / time_since_last
-            last_streamed_frame_timestamp = current_time
+            time_since_last_frame = current_time - last_frame_time
+            fps = 1 / time_since_last_frame
+            last_frame_time = current_time
 
             print(f"FPS: {fps:.0f}")
             
             if not stream_queue.full():
                 # generate and stream frame
-                processed_frame = detector.overlay(frame, results, state, fps)
+                processed_frame = object_detector.overlay(frame, results, state, fps)
                 stream_queue.put(processed_frame)
 
         else:
@@ -152,6 +188,9 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
 def hardware_control(aim_motor, trigger_motor, hardware_command_queue, state: SystemState):
     """
     Receives commands through hardware_command_queue and calls functions to perform those actions.
+
+    TODO:
+    - All
     """
     while state.mode != SystemMode.SHUTDOWN:
         # UNIMPLEMENTED
@@ -160,6 +199,9 @@ def hardware_control(aim_motor, trigger_motor, hardware_command_queue, state: Sy
 def video_saver(trigger_event, frame_history, post_roll_queue, metadata_queue, state: SystemState):
     """
     Saves a video of event whenever event is trigger. Also saves the yolo metadata as json.
+
+    TODO:
+    - All 
     """
     while state.mode != SystemMode.SHUTDOWN:
         # UNIMPLEMENTED

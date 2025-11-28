@@ -1,3 +1,24 @@
+"""
+Top level file for autonomous spraying system.
+
+This module initializes all hardware components and launches the concurrent 
+processing units required for real-time detection and actuation. It manages 
+the lifecycle of the application, including graceful shutdown procedures and 
+resource cleanup.
+
+Usage:
+    Run this script directly from the project root to start the system:
+    
+    $ python3 main.py
+
+    Ensure that the 'config.ini' file is present (and properly conifgured) in 
+    the root directory before execution.
+
+TODO:
+    - add some config variables, see inline comments
+    - make processing thread a process to improve performance
+    - change hardware queue size to match what final implementation necessitates
+"""
 import os
 import queue
 import threading
@@ -13,14 +34,14 @@ from vision.camera import Camera
 
 def calibrate(camera: Camera, aim: Servo, trigger: Servo):
     """
-    Calibrate the hardware
+    Calibrate the hardware.
 
     1. Capture an image and store it in camroll
     2. Move servos to calibration position to be screwed into the assembly
     3. Wait some number of seconds
     4. return servos to default position
     """
-    # capture frame and save to camroll
+    print("capturing test frame")
     test_frame = camera.capture()
 
     camroll_dir = os.path.join(os.path.dirname(__file__), "camroll")
@@ -29,21 +50,27 @@ def calibrate(camera: Camera, aim: Servo, trigger: Servo):
 
     cv2.imwrite(save_path, test_frame)
     
-    # set motors to calibration position
+    print("moving motors to calibration position")
     aim.calib_pos()
     trigger.calib_pos()
 
-    # countdown until resetting position to default
-    for i in range(3, -1, -1):
-        print(f"{i}")
+    # countdown waiting for servos to be fully mounted
+    print("attach servo horns")
+    for i in range(3, -1, -1): # TODO create config for countdown length
+        print(f"Waiting for {i} seconds")
         time.sleep(1)
 
     # set motors to default position
+    print("returning to default position")
     aim.default_pos()
     trigger.default_pos()
 
 
 if __name__=="__main__":
+    """
+    Initialize hardware and variables, run concurrent threads, listen for stop 
+    and orchestrate graceful shutdown.
+    """
     # initialize hardware
     print("initializing hardware")
     camera = Camera()
@@ -52,18 +79,19 @@ if __name__=="__main__":
 
     # initialize queues
     print("initializing queues")
-    fps = 15
-    pre_roll_seconds = 10
+    fps = 15 # TODO make config variable
+    pre_roll_seconds = 10 # TODO make config variable
+    post_roll_seconds = 5 # TODO make config variable
+
     pre_roll_size = fps*pre_roll_seconds
+    post_roll_size = fps*post_roll_seconds
+
     frame_history = state_manager.ThreadingDeque(pre_roll_size) # pre_roll for saved video
+    metadata_queue = state_manager.ThreadingDeque(pre_roll_size+post_roll_size)
+    post_roll_queue = queue.Queue(post_roll_size)
 
     raw_queue = queue.Queue(2)
     stream_queue = queue.Queue(2)
-
-    post_roll_seconds = 5
-    post_roll_size = fps*post_roll_seconds
-    post_roll_queue = queue.Queue(post_roll_size)
-    metadata_queue = state_manager.ThreadingDeque(pre_roll_size+post_roll_size)
     hardware_command_queue = queue.Queue(10)
 
     # initialize system
@@ -71,7 +99,7 @@ if __name__=="__main__":
     state = state_manager.SystemState()
     trigger_event = threading.Event()
 
-    # calibrate
+    # calibrate TODO: system variable for turning calibration off
     print("starting calibration")
     calibrate(camera, aim_motor, trigger_motor)
 
@@ -107,7 +135,9 @@ if __name__=="__main__":
     state.mode = state_manager.SystemMode.SENTRY
     threads = [capture_thread, stream_thread, yolo_processing_thread, hardware_control_thread, video_saver_thread]
     for t in threads:
+        print(f"starting thread...", end="")
         t.start()
+        print(" started")
 
     # listen for keyboard interrupt for graceful shutdown
     print("threads running, listening for interrupt (ctrl c) for controlled shutdown")
