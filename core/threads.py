@@ -136,11 +136,6 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
     while state.mode != SystemMode.SHUTDOWN:
         frame, timestamp = raw_queue.get()
 
-        # test stream without processing
-        testing = False
-        while testing:
-            stream_queue.put(frame)
-
         # if in a mode that needs inference to run
         if state.mode == SystemMode.SENTRY or state.mode == SystemMode.AIMING:
             results = object_detector.predict(frame)
@@ -191,6 +186,7 @@ def hardware_control(aim_motor, trigger_motor, hardware_command_queue, state: Sy
 
     TODO:
     - All
+    - add debug for sending commands to console when hardware isn't enabled
     """
     while state.mode != SystemMode.SHUTDOWN:
         # UNIMPLEMENTED

@@ -1,14 +1,21 @@
 """
-DISCLAIMER: This file is programmed almost entirely by github copilot and is buggy
-
-reads jpgs from test_cats_dir and feeds them through each model in MODEL_PATHS
+Reads jpgs from test_cats_dir and feeds them through each model in MODEL_PATHS
 displays summary of detection quality and displays results in windows
+
+Usage:
+    - Add models to MODEL_PATHS
+    - Run program, summary will be displayed in terminal
+        - focus pop up windows and press any key (besides q) to cycle through images to
+        inspect identifications
+        - press q to quit
+
+WARNING: This file is vibe coded with few fixes and is buggy
 """
-import cv2
-import os
 import numpy as np
 import time
 from pathlib import Path
+
+import cv2
 from ultralytics import YOLO
 
 # ===== CONFIGURATION =====
@@ -20,11 +27,9 @@ MODEL_PATHS = [
     './models/11s_320p_halfprecision_ncnn_model',
     # './models/11s_480p_halfprecision_ncnn_model',
     # './models/11s_640p_halfprecision_ncnn_model',
-    # Add more model paths here, e.g.:
-    # './models/another_model',
     'yolov8n.pt',
 ]
-IMGSZ = 320  # Model input size
+IMGSZ = 320  # Size images are displayed at (match to models imgsz to see exactly what is fed to model)
 # =========================
 
 # Load YOLO models

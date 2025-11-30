@@ -4,26 +4,31 @@ Contains types and classes for handling the SystemState including simple configu
 Also contains class for thread safe frame history deque
 
 TODO:
-- implement 'global' values stored within system state
+- Add system variables to systemstate
 """
 
-import numpy as np
 from collections import deque
 from enum import auto, StrEnum
 from threading import Lock
-from typing import Tuple
-
-FrameData = Tuple[np.ndarray, float]
+from typing import Any
 
 class SystemMode(StrEnum):
     STARTUP = auto()
     SENTRY = auto()
     AIMING = auto()
-    FIRE = auto()
+    FIRE = auto() # TODO: remove if unused
     COOLDOWN = auto()
     SHUTDOWN = auto()
 
 class SystemState():
+    """
+    This class allows for threads to share system information safely. Contains
+    the system mode and other shared variables that use simple types.
+
+    Attributes:
+        mode (SystemMode): determines the current system mode
+        #TODO add system variables (not constants)
+    """
     def __init__(self):
         self.lock = Lock()
         self._mode = SystemMode.STARTUP
@@ -45,6 +50,12 @@ class SystemState():
     # OTHER GETTER AND SETTERS 
 
 class ThreadingDeque:
+    """
+    A wrapper class for deque that makes it thread safe.
+
+    TODO:
+        - Potentially make child classes that specify type within the deque
+    """
     def __init__(self, max_length: int):
         self._deque = deque(maxlen=max_length)
         self._lock = Lock()
@@ -53,7 +64,7 @@ class ThreadingDeque:
         with self._lock:
             self._deque.append(data)
 
-    def get_snapshot(self):
+    def get_snapshot(self) -> list[Any]:
         with self._lock:
             return list(self._deque)
 
