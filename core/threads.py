@@ -21,6 +21,7 @@ import cv2
 import imagezmq
 
 from vision.detector import TargetDirection, ObjectDetector
+from core.config import config
 from core.state_manager import SystemMode, SystemState, ThreadingDeque
 from hardware.hardware_control import HardwareCommand
 from vision.camera import Camera
@@ -77,12 +78,18 @@ def stream_frames(stream_queue: queue.Queue, state: SystemState):
         - consider adding compression value to config
     """
     # get tcp port from config
-    config = configparser.ConfigParser()
+    config1 = configparser.ConfigParser()
     root_dir = Path(__file__).resolve().parent.parent
     config_file_path = root_dir / 'config.ini'
-    config.read(config_file_path)
+    config1.read(config_file_path)
 
-    reciever_port = config.get('NETWORK', 'RECEIVER_PORT')
+    receiver_port = config.network.port
+    receiver_ip = config.network.receiver_ip
+    full_address = f"{receiver_ip}:{receiver_port}"
+    print(full_address)
+
+
+    reciever_port = config1.get('NETWORK', 'RECEIVER_PORT')
     reciever_ip = os.environ.get('RECEIVER_IP')
     full_tcp_address = f"{reciever_ip}:{reciever_port}"
 
