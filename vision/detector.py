@@ -12,6 +12,7 @@ import cv2
 
 from core.config import config
 from hardware.hardware_control import HardwareCommand
+from core.state_manager import SystemState, SystemMode
 
 class TargetDirection(StrEnum):
     CENTER = auto()
@@ -71,7 +72,7 @@ class ObjectDetector:
         results = DetectionResult(self._model.predict(frame, verbose=False))
         return results
 
-    def overlay(self, frame, results: DetectionResult, state, fps, last_command):
+    def overlay(self, frame, results: DetectionResult, state: SystemState, fps, last_command):
         """
 
         Args:
@@ -89,7 +90,7 @@ class ObjectDetector:
         annotated_frame = results.overlay(frame)
 
         # add fps counter
-        text = f'FPS: {fps:.1f} Last Command: {last_command}'
+        text = f'FPS: {fps:.1f} State: {state.mode} Last Command: {last_command}'
         font = cv2.FONT_HERSHEY_SIMPLEX
         text_size = cv2.getTextSize(text, font, 1, 2)[0]
         text_x = annotated_frame.shape[1] - text_size[0] - 10

@@ -30,6 +30,7 @@ import core.threads
 from core.config import config
 from hardware.servo import Servo, setup_aiming, setup_trigger
 from vision.camera import Camera
+from hardware.hardware_control import HardwareQueue
 
 
 def calibrate(camera: Camera, aim: Servo, trigger: Servo):
@@ -92,7 +93,7 @@ if __name__=="__main__":
 
     raw_queue = queue.Queue(2)
     stream_queue = queue.Queue(2)
-    hardware_command_queue = queue.Queue(10)
+    hardware_command_queue = HardwareQueue()
 
     # initialize system
     print("initializing system state")

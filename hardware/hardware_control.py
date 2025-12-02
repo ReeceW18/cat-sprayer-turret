@@ -20,8 +20,16 @@ class HardwareQueue():
         self._queue = Queue()
         self._lock = Lock()
 
+        self._last_command = HardwareCommand.NULL
+
+    @property
+    def current_status(self) -> str:
+        with self._lock:
+            return self._last_command
+
     def put(self, command: HardwareCommand):
         with self._lock:
+            self._last_command = command
             is_fire = self._purge_stale_moves()
             if is_fire:
                 return
@@ -54,13 +62,6 @@ class HardwareQueue():
     def get(self) -> HardwareCommand:
         return self._queue.get()
 
-    def see(self) -> HardwareCommand:
-        try:
-            return_value = self._queue[0]
-            return return_value
-        except IndexError:
-            return HardwareCommand.NULL
-        
     def __str__(self):
         with self._queue.mutex:
             return str(list(self._queue.queue))

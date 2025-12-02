@@ -22,7 +22,7 @@ import imagezmq
 from vision.detector import TargetDirection, ObjectDetector
 from core.config import config
 from core.state_manager import SystemMode, SystemState, ThreadingDeque
-from hardware.hardware_control import HardwareCommand
+from hardware.hardware_control import HardwareCommand, HardwareQueue
 from vision.camera import Camera
 
 def capture_frames(camera: Camera, raw_queue: queue.Queue, frame_history: ThreadingDeque, post_roll_queue: queue.Queue, state: SystemState):
@@ -37,6 +37,7 @@ def capture_frames(camera: Camera, raw_queue: queue.Queue, frame_history: Thread
         system, vessel for all simple variables shared by threads
 
     TODO:
+        - separate capture and process into separate threads
     """
     last_capture_time = time.time()
     while state.mode != SystemMode.SHUTDOWN:
@@ -96,7 +97,7 @@ def stream_frames(stream_queue: queue.Queue, state: SystemState):
         # this blocks until image is received
         sender.send_image(rpi_name, compressed_frame)
 
-def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stream_queue: queue.Queue, metadata_queue: ThreadingDeque, hardware_command_queue: queue.Queue, state: SystemState):
+def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stream_queue: queue.Queue, metadata_queue: ThreadingDeque, hardware_command_queue: HardwareQueue, state: SystemState):
     """
     Run processing on images and make decisions for hardware commands
 
@@ -127,6 +128,7 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
     # used to determine processing fps for display when streaming frames
     last_frame_time = time.time()
     trigger_time = -1
+    last_command = HardwareCommand.NULL
 
     while state.mode != SystemMode.SHUTDOWN:
         frame, timestamp = raw_queue.get()
@@ -142,13 +144,13 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
                 if results.has_target():
                     state.mode = SystemMode.AIMING
                     print("Switching to AIMING mode")
-            elif not hardware_command_queue.full:
+            else:
                 direction = results.get_direction()
                 if direction == TargetDirection.CENTER:
                     trigger_event.set()
                     trigger_time = time.time()
                     hardware_command_queue.put(HardwareCommand.FIRE)
-                    state.mode = SystemMode.COOLDOWN
+                    #state.mode = SystemMode.COOLDOWN
                 elif direction == TargetDirection.LEFT:
                     hardware_command_queue.put(HardwareCommand.AIM_LEFT)
                 elif direction == TargetDirection.RIGHT:
@@ -163,10 +165,14 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
             last_frame_time = current_time
 
             # print(f"FPS: {fps:.1f}")
+
+            current_command = hardware_command_queue.current_status
+            if current_command != HardwareCommand.NULL:
+                last_command = current_command
             
             if not stream_queue.full():
                 # generate and stream frame
-                processed_frame = object_detector.overlay(frame, results, state, fps)
+                processed_frame = object_detector.overlay(frame, results, state, fps, last_command)
                 stream_queue.put(processed_frame)
 
             if state.mode == SystemMode.SENTRY:
