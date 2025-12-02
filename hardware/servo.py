@@ -5,12 +5,13 @@ TODO:
 - setup functions (hardware initalization)
 - actual servo interfacing
 """
+from core.config import config
 
 class Servo():
-    def __init__(self):
+    def __init__(self, default_angle = config.hardware.aim_default_angle):
         # PLACEHOLDER VALUES (TODO add to config?)
-        self._calibration_angle = 0
-        self._default_angle = 0
+        self._calibration_angle = config.hardware.calibration_angle
+        self._default_angle = default_angle
         return
 
     def release(self):

@@ -15,7 +15,6 @@ Usage:
     the root directory before execution.
 
 TODO:
-    - add some config variables, see inline comments
     - make processing thread a process to improve performance
     - change hardware queue size to match what final implementation necessitates
 """
@@ -28,6 +27,7 @@ import cv2
 
 import core.state_manager as state_manager
 import core.threads
+from core.config import config
 from hardware.servo import Servo, setup_aiming, setup_trigger
 from vision.camera import Camera
 
@@ -56,7 +56,7 @@ def calibrate(camera: Camera, aim: Servo, trigger: Servo):
 
     # countdown waiting for servos to be fully mounted
     print("attach servo horns")
-    for i in range(3, -1, -1): # TODO create config for countdown length
+    for i in range(config.durations.calibration_seconds, -1, -1): 
         print(f"Waiting for {i} seconds")
         time.sleep(1)
 
@@ -79,9 +79,9 @@ if __name__=="__main__":
 
     # initialize queues
     print("initializing queues")
-    fps = 15 # TODO make config variable
-    pre_roll_seconds = 10 # TODO make config variable
-    post_roll_seconds = 5 # TODO make config variable
+    fps = config.camera.fps_recording 
+    pre_roll_seconds = config.durations.pre_roll_seconds
+    post_roll_seconds = config.durations.post_roll_seconds
 
     pre_roll_size = fps*pre_roll_seconds
     post_roll_size = fps*post_roll_seconds
@@ -99,15 +99,17 @@ if __name__=="__main__":
     state = state_manager.SystemState()
     trigger_event = threading.Event()
 
-    # calibrate TODO: system variable for turning calibration off
-    print("starting calibration")
-    calibrate(camera, aim_motor, trigger_motor)
+    if config.system.calibration_enabled:
+        print("starting calibration")
+        calibrate(camera, aim_motor, trigger_motor)
+    else:
+        print("skipping calibration")
 
     # create threads
     print("creating threads")
     capture_thread = threading.Thread(
         target=core.threads.capture_frames,
-        args=(camera, raw_queue, state),
+        args=(camera, raw_queue, frame_history, post_roll_queue, state),
         daemon=True)
 
     stream_thread = threading.Thread(
@@ -117,7 +119,7 @@ if __name__=="__main__":
 
     yolo_processing_thread = threading.Thread(
         target=core.threads.yolo_processing,
-        args=(trigger_event, raw_queue, stream_queue, frame_history, post_roll_queue, metadata_queue, hardware_command_queue, state),
+        args=(trigger_event, raw_queue, stream_queue, metadata_queue, hardware_command_queue, state),
         daemon=True)
 
     hardware_control_thread = threading.Thread(
@@ -137,7 +139,7 @@ if __name__=="__main__":
     for t in threads:
         print(f"starting thread...", end="")
         t.start()
-        print(" started")
+        print(" thread started")
 
     # listen for keyboard interrupt for graceful shutdown
     print("threads running, listening for interrupt (ctrl c) for controlled shutdown")

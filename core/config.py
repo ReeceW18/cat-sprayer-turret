@@ -14,7 +14,7 @@ class CameraConfig:
     resolution: tuple[int, int] = (1080,1080)
     fps_sentry: int = 1
     fps_aiming: int = 10
-    fps_recording: int = 30
+    fps_recording: int = 15
 
 @dataclass(frozen=True)
 class NetworkConfig:
@@ -37,15 +37,15 @@ class HardwareConfig:
 
 @dataclass(frozen=True)
 class YoloConfig:
-    model_directory: str = "models/"
-    model: str = model_directory + "11s_480p_halfprecision_ncnn_model"
+    models_directory: str = "models/"
+    model: str = models_directory + "11s_320p_halfprecision_ncnn_model"
     target_id: int = 0 # 0 = person, 15 = cat
     center_tolerance: float = 0
     confidence_threshold: float = .50
 
 @dataclass(frozen=True)
 class DurationsConfig:
-    calibration_seconds: int = 3
+    calibration_seconds: int = 1
     pre_roll_seconds: int = 10
     post_roll_seconds: int = 5
     cooldown_min_seconds: int = post_roll_seconds

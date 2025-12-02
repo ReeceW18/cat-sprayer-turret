@@ -76,24 +76,10 @@ def stream_frames(stream_queue: queue.Queue, state: SystemState):
         system, vessel for all simple variables shared by threads
 
     TODO:
-        - consider better ways to store ip and port
-        - consider adding compression value to config
     """
-    # get tcp port from config
-    config1 = configparser.ConfigParser()
-    root_dir = Path(__file__).resolve().parent.parent
-    config_file_path = root_dir / 'config.ini'
-    config1.read(config_file_path)
-
     receiver_port = config.network.port
     receiver_ip = config.network.receiver_ip
-    full_address = f"{receiver_ip}:{receiver_port}"
-    print(full_address)
-
-
-    reciever_port = config1.get('NETWORK', 'RECEIVER_PORT')
-    reciever_ip = os.environ.get('RECEIVER_IP')
-    full_tcp_address = f"{reciever_ip}:{reciever_port}"
+    full_tcp_address = f"{receiver_ip}:{receiver_port}"
 
     print(f"connecting to {full_tcp_address}")
     sender = imagezmq.ImageSender(connect_to=f'tcp://{full_tcp_address}')
@@ -104,7 +90,7 @@ def stream_frames(stream_queue: queue.Queue, state: SystemState):
         frame = stream_queue.get()
 
         # scale from 1-100, 100 being highest quality, default 95
-        jpeg_quality = 75
+        jpeg_quality = config.compression.stream_compression
         _, compressed_frame = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality])
 
         # this blocks until image is received

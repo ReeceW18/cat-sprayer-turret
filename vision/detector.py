@@ -5,9 +5,12 @@ TODO:
     - Add class/method comments
 """
 from enum import StrEnum, auto
+
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 import cv2
+
+from core.config import config
 
 class TargetDirection(StrEnum):
     CENTER = auto()
@@ -16,9 +19,6 @@ class TargetDirection(StrEnum):
     NONE = auto()
 
 class DetectionResult:
-    # TODO add to config
-    TARGET_ID = 0
-
     def __init__(self, yolo_results: list[Results]):
         self._yolo_results = yolo_results
 
@@ -31,7 +31,7 @@ class DetectionResult:
 
         detected_objects = self._yolo_results[0].boxes.cls.tolist()
 
-        if DetectionResult.TARGET_ID in detected_objects:
+        if config.yolo.target_id in detected_objects:
             target_found = True
 
         return target_found
@@ -39,7 +39,7 @@ class DetectionResult:
     def get_direction(self) -> TargetDirection:
         target_indexes = self._get_target_indexes()
         xyxyn_boxes = self._yolo_results[0].boxes.xyxyn
-        center_tolerance = 0.1 #TODO add to config
+        center_tolerance = config.yolo.center_tolerance
         left_bound = 0.5 - center_tolerance
         right_bound = 0.5 + center_tolerance
 
@@ -57,13 +57,13 @@ class DetectionResult:
     def _get_target_indexes(self) -> list[int]:
         target_indexes = []
         for i in range(0, len(self._yolo_results[0])):
-            if self._yolo_results[0].boxes.cls.tolist()[i] == DetectionResult.TARGET_ID:
+            if self._yolo_results[0].boxes.cls.tolist()[i] == config.yolo.target_id:
                 target_indexes.append(i)
         return target_indexes
 
 class ObjectDetector:
     def __init__(self):
-        model_path = "models/11s_320p_halfprecision_ncnn_model" # TODO, define in config
+        model_path = config.yolo.model
         self._model = YOLO(model_path)
 
     def predict(self, frame) -> DetectionResult:
@@ -88,7 +88,7 @@ class ObjectDetector:
         annotated_frame = results.overlay(frame)
 
         # add fps counter
-        text = f'FPS: {fps:.0f}'
+        text = f'FPS: {fps:.1f}'
         font = cv2.FONT_HERSHEY_SIMPLEX
         text_size = cv2.getTextSize(text, font, 1, 2)[0]
         text_x = annotated_frame.shape[1] - text_size[0] - 10
@@ -98,7 +98,7 @@ class ObjectDetector:
 
         # add a representation of center bounds
         h, w = annotated_frame.shape[:2]
-        tol = 0.1 # TODO should pull center_tolerance from config
+        tol = config.yolo.center_tolerance
         left_x = int((0.5 - tol)*w)
         right_x = int((0.5 + tol)*w)
         center_x = int(0.5*w)
