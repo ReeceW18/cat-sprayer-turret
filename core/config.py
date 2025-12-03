@@ -11,10 +11,10 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class CameraConfig:
-    resolution: tuple[int, int] = (1080,1080)
+    resolution: tuple[int, int] = (1536,864)
     fps_sentry: int = 1
     fps_aiming: int = 10
-    fps_recording: int = 15
+    fps_recording: int = 120
 
 @dataclass(frozen=True)
 class NetworkConfig:
@@ -31,9 +31,11 @@ class CompressionConfig:
 class HardwareConfig:
     calibration_angle: float = 0
     aim_default_angle: float = 0
-    trigger_default_angle: float = 90+45
+    trigger_default_angle: float = 90+60
     trigger_distance: float = 15
     # add gpio pins
+    aim_pin: int = 18
+    trigger_pin: int = 19
 
 @dataclass(frozen=True)
 class YoloConfig:
@@ -45,14 +47,14 @@ class YoloConfig:
 
 @dataclass(frozen=True)
 class DurationsConfig:
-    calibration_seconds: int = 1
+    calibration_seconds: int = 150
     pre_roll_seconds: int = 10
     post_roll_seconds: int = 5
     cooldown_min_seconds: int = post_roll_seconds
 
 @dataclass(frozen=True)
 class SystemConfig:
-    calibration_enabled: bool = True
+    calibration_enabled: bool = False
     
 # Main class
 @dataclass(frozen=True)

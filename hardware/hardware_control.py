@@ -5,8 +5,6 @@ from enum import StrEnum, auto
 from queue import Queue, Empty
 from threading import Lock
 
-
-
 class HardwareCommand(StrEnum):
     AIM_LEFT = auto()
     AIM_RIGHT = auto()
