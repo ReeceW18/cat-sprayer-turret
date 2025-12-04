@@ -67,6 +67,7 @@ class DurationsConfig:
     pre_roll_seconds: int = 5
     post_roll_seconds: int = 5
     cooldown_min_seconds: int = post_roll_seconds
+    max_aiming_seconds: int = 10
 
 @dataclass(frozen=True)
 class SystemConfig:

@@ -23,7 +23,9 @@ from vision.detector import TargetDirection, ObjectDetector
 from core.config import config
 from core.state_manager import SystemMode, SystemState, ThreadingDeque
 from hardware.hardware_control import HardwareCommand, HardwareQueue
+from hardware.servo import Servo
 from vision.camera import Camera
+
 
 def capture_frames(camera: Camera, raw_queue: queue.Queue, frame_history: ThreadingDeque, post_roll_queue: queue.Queue, state: SystemState):
     """
@@ -56,14 +58,13 @@ def capture_frames(camera: Camera, raw_queue: queue.Queue, frame_history: Thread
         if state.mode == SystemMode.SENTRY or state.mode == SystemMode.AIMING:
             frame_history.append((compressed_frame, timestamp))
         elif state.mode == SystemMode.COOLDOWN:
-            post_roll_queue.put((compressed_frame, timestamp)) #TODO double check adding properly when queue is full and when video recorder resets everything. check for timeout?
+            if not post_roll_queue.full():
+                post_roll_queue.put((compressed_frame, timestamp)) #TODO double check adding properly when queue is full and when video recorder resets everything. check for timeout?
 
         if not raw_queue.full():
             raw_queue.put((frame, timestamp))
         
         time.sleep(1/config.camera.fps_recording)
-
-        
 
 def stream_frames(stream_queue: queue.Queue, state: SystemState):
     """
@@ -128,7 +129,9 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
     # used to determine processing fps for display when streaming frames
     last_frame_time = time.time()
     trigger_time = -1
+    detection_time = -1
     last_command = HardwareCommand.NULL
+
 
     while state.mode != SystemMode.SHUTDOWN:
         frame, timestamp = raw_queue.get()
@@ -142,20 +145,28 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
 
             if state.mode == SystemMode.SENTRY:
                 if results.has_target():
-                    state.mode = SystemMode.AIMING
                     print("Switching to AIMING mode")
+                    detection_time = time.time()
+                    state.mode = SystemMode.AIMING
             else:
-                direction = results.get_direction()
+                if time.time() - detection_time > config.durations.max_aiming_seconds:
+                    print("max time hit, firing by default")
+                    direction = TargetDirection.CENTER
+                else:
+                    direction = results.get_direction()
                 if direction == TargetDirection.CENTER:
                     trigger_event.set()
                     trigger_time = time.time()
+                    print("FIRE")
                     hardware_command_queue.put(HardwareCommand.FIRE)
-                    #state.mode = SystemMode.COOLDOWN
+                    print("Switching to COOLDOWN mode")
+                    state.mode = SystemMode.COOLDOWN
                 elif direction == TargetDirection.LEFT:
                     hardware_command_queue.put(HardwareCommand.AIM_LEFT)
                 elif direction == TargetDirection.RIGHT:
                     hardware_command_queue.put(HardwareCommand.AIM_RIGHT)
 
+            # TODO only store necessary
             metadata_queue.append((results, timestamp))
 
             # calculate fps
@@ -185,11 +196,12 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
         else:
             time_since_trigger = time.time() - trigger_time 
             if not trigger_event.is_set() and time_since_trigger > config.durations.cooldown_min_seconds:
+                print("switching to SENTRY mode")
                 state.mode = SystemMode.SENTRY
             else:
                 time.sleep(.1)
 
-def hardware_control(aim_motor, trigger_motor, hardware_command_queue, state: SystemState):
+def hardware_control(aim_motor: Servo, trigger_motor: Servo, hardware_command_queue: HardwareQueue, state: SystemState):
     """
     Receives commands through hardware_command_queue and calls functions to perform those actions.
 
@@ -199,9 +211,34 @@ def hardware_control(aim_motor, trigger_motor, hardware_command_queue, state: Sy
     """
     while state.mode != SystemMode.SHUTDOWN:
         # UNIMPLEMENTED
-        time.sleep(10)
+        command = hardware_command_queue.get()
 
-def video_saver(trigger_event, frame_history, post_roll_queue, metadata_queue, state: SystemState):
+        if config.system.virtual_hardware:
+            match command:
+                case HardwareCommand.AIM_LEFT:
+                    print("aim left")
+                case HardwareCommand.AIM_RIGHT:
+                    print("aim right")
+                case HardwareCommand.AIM_RIGHT:
+                    print("fire")
+            continue
+
+
+        match command:
+            case HardwareCommand.AIM_LEFT:
+                aim_motor.move_by(-config.hardware.aim_increment) #TODO make a config values
+            case HardwareCommand.AIM_RIGHT:
+                aim_motor.move_by(config.hardware.aim_increment)
+            case HardwareCommand.FIRE:
+                trigger_motor.move_by(config.hardware.trigger_distance)
+                trigger_motor.move_to(config.hardware.trigger_default_angle)
+                time.sleep(2)
+        time.sleep(config.hardware.command_cooldown)
+
+            
+
+
+def video_saver(trigger_event: threading.Event, frame_history: ThreadingDeque, post_roll_queue: queue.Queue, metadata_queue: ThreadingDeque, hardware_command_queue: HardwareQueue, state: SystemState):
     """
     Saves a video of event whenever event is trigger. Also saves the yolo metadata as json.
 
@@ -210,7 +247,19 @@ def video_saver(trigger_event, frame_history, post_roll_queue, metadata_queue, s
     """
     while state.mode != SystemMode.SHUTDOWN:
         # UNIMPLEMENTED
-        time.sleep(10)
+        trigger_event.wait()
+        if state.mode == SystemMode.SHUTDOWN:
+            break
+        time.sleep(2)
+        frame_history.clear()
+        with post_roll_queue.mutex:
+            post_roll_queue.queue.clear()
+        metadata_queue.clear()
+        hardware_command_queue.clear()
+        # TODO probably need to clear raw queue to prevent unexpected behavior
+        trigger_event.clear()
+
+        
 
     # CLEAN UP WRITER
 

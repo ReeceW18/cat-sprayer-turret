@@ -27,12 +27,12 @@ class HardwareQueue():
 
     def put(self, command: HardwareCommand):
         with self._lock:
-            self._last_command = command
             is_fire = self._purge_stale_moves()
             if is_fire:
                 return
             else:
                 self._queue.put(command)
+                self._last_command = command
 
 
     def _purge_stale_moves(self) -> bool:
@@ -59,6 +59,10 @@ class HardwareQueue():
 
     def get(self) -> HardwareCommand:
         return self._queue.get()
+
+    def clear(self):
+        with self._queue.mutex:
+            self._queue.queue.clear()
 
     def __str__(self):
         with self._queue.mutex:

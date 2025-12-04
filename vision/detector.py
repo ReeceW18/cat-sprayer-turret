@@ -46,12 +46,13 @@ class DetectionResult:
         right_bound = 0.5 + center_tolerance
 
         target_boxes = [xyxyn_boxes[i] for i in target_indexes]
-
         if not target_boxes:
             return TargetDirection.NONE
-        elif target_boxes[0][2] < left_bound:
+        midpoint = (target_boxes[0][2] + target_boxes[0][0])/2
+
+        if midpoint < left_bound:
             return TargetDirection.LEFT
-        elif target_boxes[0][0] > right_bound:
+        elif midpoint > right_bound:
             return TargetDirection.RIGHT
         else:
             return TargetDirection.CENTER

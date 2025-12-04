@@ -53,7 +53,8 @@ def calibrate(camera: Camera, aim: Servo, trigger: Servo):
     
     print("moving motors to calibration position")
     aim.calib_pos()
-    trigger.calib_pos()
+    aim.move_to(config.hardware.calibration_angle)
+    trigger.move_to(config.hardware.calibration_angle)
 
     # countdown waiting for servos to be fully mounted
     print("attach servo horns")
@@ -63,8 +64,8 @@ def calibrate(camera: Camera, aim: Servo, trigger: Servo):
 
     # set motors to default position
     print("returning to default position")
-    aim.default_pos()
-    trigger.default_pos()
+    aim.move_to(config.hardware.aim_default_angle)
+    trigger.move_to(config.hardware.trigger_default_angle)
 
 
 if __name__=="__main__":
@@ -130,7 +131,7 @@ if __name__=="__main__":
 
     video_saver_thread = threading.Thread(
         target=core.threads.video_saver,
-        args=(trigger_event, frame_history, post_roll_queue, metadata_queue, state),
+        args=(trigger_event, frame_history, post_roll_queue, metadata_queue, hardware_command_queue, state),
         daemon=False)
 
     # start threads
@@ -153,6 +154,7 @@ if __name__=="__main__":
         state.mode = state_manager.SystemMode.SHUTDOWN
 
         # release threads that have special ending behavior
+        trigger_event.set()
         print("waiting for video saver thread to stop")
         video_saver_thread.join()
 
