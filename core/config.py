@@ -14,7 +14,7 @@ class CameraConfig:
     resolution: tuple[int, int] = (1536,864)
     fps_sentry: int = 1
     fps_aiming: int = 10
-    fps_recording: int = 120
+    fps_recording: int = 15
 
 @dataclass(frozen=True)
 class NetworkConfig:
@@ -25,14 +25,30 @@ class NetworkConfig:
 @dataclass(frozen=True)
 class CompressionConfig:
     stream_compression: int = 75
-    recording_compression: int = 90
+    recording_compression: int = 50
 
 @dataclass(frozen=True)
 class HardwareConfig:
+    # servo initialization (based off data sheet)
+    init_min_angle = 0
+    init_max_angle = 270
+    min_pulse_width = 0.0005
+    max_pulse_width = 0.0025
+    # 
     calibration_angle: float = 0
-    aim_default_angle: float = 0
-    trigger_default_angle: float = 90+60
-    trigger_distance: float = 15
+    aim_default_angle: float = 270/2
+    trigger_default_angle: float = 90+80
+    aim_sec_per_60_deg: float = 0.20
+    trigger_sec_per_60_deg: float = 0.50   
+    init_move_time: float = 0.72 # how long servo has to move to default angle on init
+    move_buffer_time: float = 0.2
+
+    aim_increment: int = 10
+    command_cooldown: float = 0.5
+
+    aiming_min: int = 0
+    aiming_max: int = 270
+    trigger_distance: float = -40
     # add gpio pins
     aim_pin: int = 18
     trigger_pin: int = 19
@@ -42,19 +58,20 @@ class YoloConfig:
     models_directory: str = "models/"
     model: str = models_directory + "11s_320p_halfprecision_ncnn_model"
     target_id: int = 0 # 0 = person, 15 = cat
-    center_tolerance: float = 0
+    center_tolerance: float = .05
     confidence_threshold: float = .50
 
 @dataclass(frozen=True)
 class DurationsConfig:
-    calibration_seconds: int = 150
-    pre_roll_seconds: int = 10
+    calibration_seconds: int = 5
+    pre_roll_seconds: int = 5
     post_roll_seconds: int = 5
     cooldown_min_seconds: int = post_roll_seconds
 
 @dataclass(frozen=True)
 class SystemConfig:
     calibration_enabled: bool = False
+    virtual_hardware: bool = False # give console outputs instead of trying to move servos
     
 # Main class
 @dataclass(frozen=True)
