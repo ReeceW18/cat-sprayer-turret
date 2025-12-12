@@ -43,7 +43,7 @@ class HardwareConfig:
     init_move_time: float = 0.72 # how long servo has to move to default angle on init
     move_buffer_time: float = 0.2
 
-    aim_increment: int = 10
+    aim_increment: int = 5
     command_cooldown: float = 0.5
 
     aiming_min: int = 0
@@ -68,6 +68,11 @@ class DurationsConfig:
     post_roll_seconds: int = 5
     cooldown_min_seconds: int = post_roll_seconds
     max_aiming_seconds: int = 10
+    video_saving_timeout: int = .2
+
+@dataclass(frozen=True)
+class DirectoriesConfig:
+    camroll_dir = os.path.join(os.path.dirname(__file__), "camroll")
 
 @dataclass(frozen=True)
 class SystemConfig:
@@ -83,10 +88,13 @@ class Config:
     hardware: HardwareConfig = field(default_factory=HardwareConfig)
     yolo: YoloConfig = field(default_factory=YoloConfig)
     durations: DurationsConfig = field(default_factory=DurationsConfig)
+    directories: DirectoriesConfig = field(default_factory=DirectoriesConfig)
     system: SystemConfig = field(default_factory=SystemConfig)
  
 config = Config()
 
+def ensure_directories():
+    os.makedirs(config.directories.camroll_dir, exist_ok=True)
 
  
  

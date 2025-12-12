@@ -14,7 +14,10 @@ import os
 import queue
 import time
 import threading
+import json
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import cv2
 import imagezmq
@@ -26,6 +29,26 @@ from hardware.hardware_control import HardwareCommand, HardwareQueue
 from hardware.servo import Servo
 from vision.camera import Camera
 
+def reformat_metadata(metadata: list[Any], event_time: int = -1) -> list[Any]:
+    # save only import metadata, add index of event
+    new_metadata = [event_time]
+    for m in metadata:
+        detection_result = m[0]
+        timestamp = m[1]
+        raw_json = detection_result.to_json()
+
+        parsed_json = json.loads(raw_json)
+
+        if parsed_json:
+            parsed_json[0]['timestamp'] = timestamp
+        else:
+            parsed_json.append(f"timestamp: {timestamp}")
+
+        final_json = json.dumps(parsed_json, indent=4)
+
+        new_metadata.append(final_json)
+
+    return new_metadata
 
 def capture_frames(camera: Camera, raw_queue: queue.Queue, frame_history: ThreadingDeque, post_roll_queue: queue.Queue, state: SystemState):
     """
@@ -233,10 +256,8 @@ def hardware_control(aim_motor: Servo, trigger_motor: Servo, hardware_command_qu
                 trigger_motor.move_by(config.hardware.trigger_distance)
                 trigger_motor.move_to(config.hardware.trigger_default_angle)
                 time.sleep(2)
+                aim_motor.move_to(config.hardware.aim_default_angle)
         time.sleep(config.hardware.command_cooldown)
-
-            
-
 
 def video_saver(trigger_event: threading.Event, frame_history: ThreadingDeque, post_roll_queue: queue.Queue, metadata_queue: ThreadingDeque, hardware_command_queue: HardwareQueue, state: SystemState):
     """
@@ -245,22 +266,74 @@ def video_saver(trigger_event: threading.Event, frame_history: ThreadingDeque, p
     TODO:
     - All 
     """
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    fps = config.camera.fps_recording
+    res = config.camera.resolution
+
+
     while state.mode != SystemMode.SHUTDOWN:
         # UNIMPLEMENTED
         trigger_event.wait()
         if state.mode == SystemMode.SHUTDOWN:
             break
-        time.sleep(2)
+
+        formatted_time = datetime.now().strftime('%Y%m%d_%H%M%S')
+        video_filename = "event_" + formatted_time + ".avi"
+        metadata_filename = video_filename.replace(".avi", ".json")
+        video_path = os.path.join(config.directories.camroll_dir, video_filename)
+        metadata_path = os.path.join(config.directories.camroll_dir, metadata_filename)
+        video_writer = cv2.VideoWriter(str(video_path), fourcc, fps, res)
+
+        post_roll_frame_count = 0
+        max_post_roll_frames = config.camera.fps_recording*config.durations.post_roll_seconds
+
+        pre_roll_snapshot = frame_history.get_snapshot()
+        frame_0_timestamp = pre_roll_snapshot[0][1]
+        print("saving preroll")
+        for f in pre_roll_snapshot:
+            decoded_frame = cv2.imdecode(f[0], cv2.IMREAD_COLOR)
+            video_writer.write(decoded_frame)
+
+        print("done writing pre_roll")
+
+        print("saving post roll")
+
+        while post_roll_frame_count < max_post_roll_frames:
+            try:
+                frame = post_roll_queue.get(timeout=config.durations.video_saving_timeout)
+
+                decoded_frame = cv2.imdecode(frame[0], cv2.IMREAD_COLOR)
+
+                video_writer.write(decoded_frame)
+
+                post_roll_frame_count += 1
+            except queue.Empty:
+                print(f"post_roll_queue empty too long, stopped writing {max_post_roll_frames} frames short of normal")
+                break
+        
+        video_writer.release()
+
+        print(f"saved video to {video_path}")
+
+        # save metadata
+        metadata = metadata_queue.get_snapshot()
+        formatted_metadata = reformat_metadata(metadata, frame_0_timestamp)
+
+        with open(metadata_path, 'w') as f:
+            json.dump(formatted_metadata, f, indent=4)
+        print(f"saved metadata to {metadata_path}")
+        
+        trigger_event.clear()
+
         frame_history.clear()
         with post_roll_queue.mutex:
             post_roll_queue.queue.clear()
         metadata_queue.clear()
         hardware_command_queue.clear()
         # TODO probably need to clear raw queue to prevent unexpected behavior
-        trigger_event.clear()
 
-        
 
     # CLEAN UP WRITER
+
 
     return

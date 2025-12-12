@@ -38,6 +38,9 @@ class DetectionResult:
 
         return target_found
 
+    def to_json(self):
+        return self._yolo_results[0].to_json()
+
     def get_direction(self) -> TargetDirection:
         target_indexes = self._get_target_indexes()
         xyxyn_boxes = self._yolo_results[0].boxes.xyxyn

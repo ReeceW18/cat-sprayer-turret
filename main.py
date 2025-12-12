@@ -27,7 +27,7 @@ import cv2
 
 import core.state_manager as state_manager
 import core.threads
-from core.config import config
+from core.config import config, ensure_directories
 from hardware.servo import Servo, setup_aiming, setup_trigger
 from vision.camera import Camera
 from hardware.hardware_control import HardwareQueue
@@ -45,7 +45,7 @@ def calibrate(camera: Camera, aim: Servo, trigger: Servo):
     print("capturing test frame")
     test_frame = camera.capture()
 
-    camroll_dir = os.path.join(os.path.dirname(__file__), "camroll")
+    camroll_dir = config.directories.camroll_dir
     os.makedirs(camroll_dir, exist_ok=True)
     save_path = os.path.join(camroll_dir, f"calibration-test_{int(time.time())}.png")
 
@@ -73,6 +73,8 @@ if __name__=="__main__":
     Initialize hardware and variables, run concurrent threads, listen for stop 
     and orchestrate graceful shutdown.
     """
+    ensure_directories()
+
     # initialize hardware
     print("initializing hardware")
     camera = Camera()
