@@ -272,7 +272,6 @@ def video_saver(trigger_event: threading.Event, frame_history: ThreadingDeque, p
 
 
     while state.mode != SystemMode.SHUTDOWN:
-        # UNIMPLEMENTED
         trigger_event.wait()
         if state.mode == SystemMode.SHUTDOWN:
             break

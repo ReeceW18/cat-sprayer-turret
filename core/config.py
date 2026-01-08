@@ -21,6 +21,7 @@ class NetworkConfig:
     port: int = 5555
     # if no ip set stream to default port, assuming not planning to view stream
     receiver_ip: str = os.getenv("RECEIVER_IP", "127.0.0.1")
+    print(f"RECEIVER_IP: {receiver_ip}")
 
 @dataclass(frozen=True)
 class CompressionConfig:
@@ -57,7 +58,8 @@ class HardwareConfig:
 class YoloConfig:
     models_directory: str = "models/"
     model: str = models_directory + "11s_320p_halfprecision_ncnn_model"
-    target_id: int = 0 # 0 = person, 15 = cat
+    # model: str = "yolo11n.pt" # uncomment to test default model if ncnn is behaving unexpectedly
+    target_id: int = 15 # 0 = person, 15 = cat
     center_tolerance: float = .05
     confidence_threshold: float = .50
 

@@ -150,6 +150,7 @@ if __name__=="__main__":
     try:
         while True:
             time.sleep(1)
+            print(f"\033[94m current state: {state.mode} \033[0m")
     except KeyboardInterrupt:
         # indicate that system is in shutdown
         print("shutting down")
