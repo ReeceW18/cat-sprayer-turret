@@ -210,7 +210,7 @@ def yolo_processing(trigger_event: threading.Event, raw_queue: queue.Queue, stre
                 stream_queue.put(processed_frame)
 
             if state.mode == SystemMode.SENTRY:
-                time.sleep(1/config.camera.fps_sentry - latency)
+                time.sleep(max(0, 1/config.camera.fps_sentry - latency))
             else:
                 sleep_time = 1/config.camera.fps_aiming - latency
                 if sleep_time > 0:
